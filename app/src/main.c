@@ -3,20 +3,21 @@
 #include <stdlib.h>
 #include <stdbool.h>
 #include <string.h>
+#include <ctype.h>
 
 // POSIX header files
 #include <pthread.h>
 #include <unistd.h>
+#include <poll.h>
+#include <termios.h>
 
 // Project header files
 #include "ring_buffer.h"
 #include "threads.h"
 
-RingBuffer rb;
-
 static volatile bool exitFlag = false;
-static const int max_cmd_size = 8; // +++<4 CHARS>;
-
+#define max_cmd_size  8      
+static char cmd[max_cmd_size + 1]; // +++<4 CHARS>;
 typedef enum {
     kNorth,
     kSouth,
@@ -26,105 +27,138 @@ typedef enum {
     kInvalid
 } CommandType;
 
-static void ParseCommand(const char *str, CommandType *type, int *n) {
-    *type = kInvalid;
-    *n = 0;
-    
-}
-
-// producer thread will be here
+// Producer thread will be here
 void *Producer(void *userdata) {
     char c;
     RingBuffer *pRB = (RingBuffer *)userdata;
-    while(exitFlag) {
+    while(!exitFlag) {
         // Get user input
         c = getchar();
-
-        // Add to the ringbuffer
-        while (Push(pRB, c) != 0);
+        if(!isspace(c)) {
+            // Add to the ringbuffer
+            while (Push(pRB, c) != 0);
+        }
     }
-
     return NULL;
+}
+
+static void InitStdIO(struct termios *attr) {
+    setbuf(stdout, NULL);
+    struct termios new_attr;
+    tcgetattr(STDIN_FILENO, attr);
+    new_attr = *attr;
+    new_attr.c_lflag &= ~(ICANON);
+    tcsetattr(STDIN_FILENO, TCSANOW, &new_attr);
+    fprintf(stdout, "input> ");
+}
+
+static void RestoreStdIO(struct termios *attr) {
+    tcsetattr(STDIN_FILENO, TCSANOW, attr);
+}
+
+static void ParseCommand(const char *str, CommandType *type, int *n) {
+    *type = kInvalid;
+    *n = 0;
+    if(strcmp(str, "+++EXIT;") == 0) {
+        *type = kExit;
+    } else if(!(str[0] == '+' && str[1] == '+' && str[2] == '+' && str[3] == 'M' && 
+            (str[4] == 'N' || str[4] == 'S' || str[4] == 'E' || str[4] == 'W') && 
+            isdigit(str[5]) && isdigit(str[6]) && str[max_cmd_size - 1] ==';')) {
+        return;
+    } else {
+        // Valid command
+        *n = (10 * (str[5] - '0')) + (str[6] - '0');
+        switch (str[4]) {
+            case 'N' : *type = kNorth; break;
+            case 'S' : *type = kSouth; break;
+            case 'E' : *type = kEast; break;
+            case 'W' : *type = kWest; break;
+            default: *type = kInvalid; break;
+        }
+    }
 }
 
 // main will act as the main consumer thread
 int main(int argc, char** argv) {
     int ret = 0;
-
+    struct termios attr;
     if(argc != 3) {
-        fprintf(stdout, "Usage: ./robot <max size> <time>\n");
-        fprintf(stdout, "<max size> = Max size of the buffer in characters\n");
-        fprintf(stdout, "<time> = Time interval in seconds at which consumer wakes up to read\n");
+        fprintf(stderr, "Usage: ./robot <max size> <time>\n");
+        fprintf(stderr, "<max size> = Max size of the buffer in characters\n");
+        fprintf(stderr, "<time> = Time interval in seconds at which consumer wakes up to read\n");
         exit(EXIT_FAILURE);
     }
+    
+    // Turn off Canonical mode
+    InitStdIO(&attr);
 
     // Initialize Buffer
+    RingBuffer rb;
     ret = InitBuffer(&rb, atoi(argv[1]));
     if(ret != 0) {
         fprintf(stderr, "Error at InitBuffer. Returned %d\n", ret);
         exit(EXIT_FAILURE);
     }
 
-    int sleep_time = atoi(argv[2]);
-
-    // Initialize thread attributes to default
-    pthread_attr_t attr;
-    ret = pthread_attr_init(&attr);
+    // Create producer
+    pthread_t producer;
+    ret = pthread_create(&producer, NULL, Producer, &rb);
     if(ret != 0) {
-        fprintf(stderr, "Error at pthread_attr_init. Returned %d\n", ret);
-        pthread_attr_destroy(&attr);
+        fprintf(stderr, "Could not create Producer. Returned %d\n", ret);
         exit(EXIT_FAILURE);
     }
-    
-    pthread_t producer;
-//TODO : Complete creation of producer
-    char c = 0;
-    char cmd[max_cmd_size + 1];
-    memset(cmd, 0, max_cmd_size + 1);
-    int pos = 0;
-    while(exitFlag) {
-        sleep(sleep_time);
-        if(Pop(&rb, &c) == -1) {
-            continue;
-        }  
-        cmd[pos++] = c;
-        if(pos == max_cmd_size + 1) {
-            pos = 0;
-            // Check if valid command
-            CommandType type;
-            int n;
-            fprintf(stdout, "input> %s\n", cmd);
-            ParseCommand(cmd, &type, &n);
-            switch(type) {
-                case kNorth:
-                    fprintf(stdout, "output> Moved north %d steps\n", n);
-                    break;
-                case kSouth:
-                    fprintf(stdout, "output> Moved south %d steps\n", n);
-                    break;
-                case kWest:
-                    fprintf(stdout, "output> Moved west %d steps\n", n);
-                    break;
-                case kEast:
-                    fprintf(stdout, "output> Moved east %d steps\n", n);
-                    break;
-                case kExit:
-                    fprintf(stdout, "output> Exited\n");
-                    exitFlag = true;
-                    pthread_cancel(producer);
-                    break;
-                case kInvalid:
-                default:
-                    fprintf(stdout, "output> Invalid command\n");
-                    break;
-            }
-            
-            
-        } 
-    }
 
-    // Clear all the allocated memory
-    pthread_attr_destroy(&attr);
+    int sleep_time = atoi(argv[2]);
+    char c = 0;
+    int pos = 0;
+    memset(cmd, 0, max_cmd_size + 1);
+    while(!exitFlag) {
+        sleep(sleep_time);
+        while(Pop(&rb, &c) == 0) {  
+            cmd[pos++] = c;
+            if(pos == max_cmd_size) {
+                // Check if valid command
+                CommandType type;
+                int n;
+                ParseCommand(cmd, &type, &n);
+                switch(type) {
+                    case kNorth:
+                        fprintf(stdout, "\noutput> Moved north %d steps\n", n);
+                        break;
+                    case kSouth:
+                        fprintf(stdout, "\noutput> Moved south %d steps\n", n);
+                        break;
+                    case kWest:
+                        fprintf(stdout, "\noutput> Moved west %d steps\n", n);
+                        break;
+                    case kEast:
+                        fprintf(stdout, "\noutput> Moved east %d steps\n", n);
+                        break;
+                    case kExit:
+                        fprintf(stdout, "\noutput> Exited");
+                        exitFlag = true;
+                        pthread_cancel(producer);
+                        break;
+                    case kInvalid:
+                    default:
+                        fprintf(stdout, "\noutput> Invalid command\n");
+                        break;
+                }
+                memset(cmd, 0, max_cmd_size + 1);
+                if(exitFlag) {
+                    break;
+                }
+                fprintf(stdout, "input> ");
+                pos = 0; 
+            } 
+        }
+    }
+    
+    // Clean up
+    void *res;
+    pthread_join(producer, &res);
     FreeBuffer(&rb);
+    fprintf(stdout, "\n<terminated>\n");
+    RestoreStdIO(&attr);
     return EXIT_SUCCESS;
 }
