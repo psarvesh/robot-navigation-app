@@ -42,7 +42,7 @@ void *Producer(void *userdata) {
     return NULL;
 }
 
-static void InitStdIO(struct termios *attr) {
+/* static void InitStdIO(struct termios *attr) {
     setbuf(stdout, NULL);
     struct termios new_attr;
     tcgetattr(STDIN_FILENO, attr);
@@ -54,7 +54,7 @@ static void InitStdIO(struct termios *attr) {
 
 static void RestoreStdIO(struct termios *attr) {
     tcsetattr(STDIN_FILENO, TCSANOW, attr);
-}
+} */
 
 static void ParseCommand(const char *str, CommandType *type, int *n) {
     *type = kInvalid;
@@ -81,7 +81,8 @@ static void ParseCommand(const char *str, CommandType *type, int *n) {
 // main will act as the main consumer thread
 int main(int argc, char** argv) {
     int ret = 0;
-    struct termios attr;
+//    struct termios attr;
+    setbuf(stdout, NULL);
     if(argc != 3) {
         fprintf(stderr, "Usage: ./robot <max size> <time>\n");
         fprintf(stderr, "<max size> = Max size of the buffer in characters\n");
@@ -90,7 +91,7 @@ int main(int argc, char** argv) {
     }
     
     // Turn off Canonical mode
-    InitStdIO(&attr);
+//    InitStdIO(&attr);
 
     // Initialize Buffer
     RingBuffer rb;
@@ -100,6 +101,7 @@ int main(int argc, char** argv) {
         exit(EXIT_FAILURE);
     }
 
+    fprintf(stdout, "input> ");
     // Create producer
     pthread_t producer;
     ret = pthread_create(&producer, NULL, Producer, &rb);
@@ -159,6 +161,6 @@ int main(int argc, char** argv) {
     pthread_join(producer, &res);
     FreeBuffer(&rb);
     fprintf(stdout, "\n<terminated>\n");
-    RestoreStdIO(&attr);
+//    RestoreStdIO(&attr);
     return EXIT_SUCCESS;
 }
