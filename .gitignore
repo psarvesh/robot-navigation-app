@@ -16,3 +16,6 @@
 
 # VSCode specific code
 .vscode/
+
+# Binary folder
+bin/
