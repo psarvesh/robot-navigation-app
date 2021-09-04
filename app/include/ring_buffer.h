@@ -2,8 +2,10 @@
 #define __APP_RING_BUFFER__
 
 #include <pthread.h>
-
-typedef struct RingBuffer RingBuffer;
+typedef struct  {
+    char *buffer;
+    int capacity, head, tail;
+} RingBuffer;
 
 int InitBuffer(RingBuffer *rb, int max_size);
 

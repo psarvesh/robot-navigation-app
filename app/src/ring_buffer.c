@@ -1,13 +1,9 @@
-// X header files
+// C header files
+#include <stdlib.h>
 #include <stdbool.h>
 
 // Project header files
 #include "ring_buffer.h"
-
-struct RingBuffer {
-    char *buffer;
-    int capacity, head, tail;
-};
 
 int InitBuffer(RingBuffer *rb, int max_size) {
     rb->buffer = malloc((max_size + 1) * sizeof(char));
@@ -41,7 +37,6 @@ int Pop(RingBuffer *rb, char *ch){
 void ResetBuffer(RingBuffer *rb) {
     rb->head = 0;
     rb->tail = 0;
-    UpdateRBFull(rb, false);
 }
 
 void FreeBuffer(RingBuffer *rb) {
