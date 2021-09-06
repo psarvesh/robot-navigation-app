@@ -15,22 +15,34 @@ int InitBuffer(RingBuffer *rb, int max_size) {
 }
 
 int Push(RingBuffer *rb, char ch) {
-    if(rb == NULL || ((rb->head + 1) % rb->capacity == rb->tail)) {
+    if(rb == NULL) {
+        return -1;
+    }
+    int head = atomic_load(&rb->head);
+    int tail = atomic_load(&rb->tail);
+    const int new_head = (head + 1) % rb->capacity;
+
+    if(new_head == tail) {
         return -1;
     }
 
-    rb->buffer[rb->head] = ch;
-    rb->head = (rb->head + 1) % rb->capacity;
+    rb->buffer[head] = ch;
+    rb->head = new_head;
     return 0;
 }
 
 int Pop(RingBuffer *rb, char *ch){
-    if(rb == NULL || ch == NULL || (rb->head == rb->tail)) {
+    if(rb == NULL || ch == NULL){
         return -1;
     }
+    int head = atomic_load(&rb->head);
+    int tail = atomic_load(&rb->tail);
 
-    *ch = rb->buffer[rb->tail];
-    rb->tail = (rb->tail + 1) % rb->capacity;
+    if(head == tail) {
+        return -1;
+    }
+    *ch = rb->buffer[tail];
+    rb->tail = (tail + 1) % rb->capacity;
     return 0;
 }
 
