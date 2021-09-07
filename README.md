@@ -1,7 +1,7 @@
 # Text Based Robot Navigation
 Producer consumer application for robot navigation using text commands
 
-This README explains the code structure, how to build, how to run, and design decisions and assumptions.
+This README explains the code structure, build/test setup, how to build, how to run, and design decisions and assumptions.
 
 ## Directory structure
 
@@ -26,6 +26,19 @@ This README explains the code structure, how to build, how to run, and design de
 - Makefile - Used for building
 - Question.txt - Problem statement copied as-is
 - README.md - This file
+
+## Build and Test System
+
+The project uses gcc, make, git, Linux.
+
+- Programming Language - C11
+  - Optional feature used  - `atomic_int` keyword
+- gcc version - 9.3.0
+  - ldd GLIBC version - 2.31
+- make version - GNU Make 4.2.1
+- git version - 2.25.1
+- Linux version - 5.4.0-81-generic
+  - Release - Ubuntu 20.04.3 LTS
 
 ## Build Instructions
 
