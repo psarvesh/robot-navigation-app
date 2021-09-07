@@ -3,6 +3,8 @@
 
 // C header files
 #include <stdio.h>
+#include <string.h>
+#include <ctype.h>
 
 #define max_cmd_size  8  
 
@@ -20,7 +22,9 @@ void ParseCommand(const char *str, CommandType *type, int *n) {
     *type = kInvalid;
     *n = 0;
     
-    if(strcmp(str, "+++EXIT;") == 0) { // Special case
+    if(strlen(str) != max_cmd_size) {
+        fprintf(stdout, "\noutput> Invalid command\ninput> ");
+    } else if(strcmp(str, "+++EXIT;") == 0) { // Special case
         *type = kExit;
         fprintf(stdout, "\noutput> Exited");
     } else if(!(str[0] == '+' && str[1] == '+' && str[2] == '+' && str[3] == 'M' && 

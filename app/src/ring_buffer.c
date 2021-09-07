@@ -53,4 +53,5 @@ void ResetBuffer(RingBuffer *rb) {
 
 void FreeBuffer(RingBuffer *rb) {
     free(rb->buffer);
+    rb->buffer = NULL;
 }
