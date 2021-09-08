@@ -15,7 +15,6 @@ This README explains the code structure, build/test setup, how to build, how to 
 │   └── robot
 ├── LICENSE
 ├── Makefile
-├── Question.txt
 └── README.md
 ```
 
@@ -26,7 +25,6 @@ This README explains the code structure, build/test setup, how to build, how to 
 - bin/ - Contains the executable
 - LICENSE - MIT License file
 - Makefile - Used for building
-- Question.txt - Problem statement copied as-is
 - README.md - This file
 
 ## Build and Test System
